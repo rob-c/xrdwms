@@ -29,6 +29,9 @@ jobs:
         with:
           package: xrdwms
           preflight: true
+          # Every public module is imported from the installed wheel, and the
+          # ARC backend (xrdwms.backends.arc) is xrdarc's.
+          extras: arc
 
   # Trusted publishing ties PyPI's trust to this job of this workflow, so the
   # upload stays here, in a job that only downloads what the build staged.
