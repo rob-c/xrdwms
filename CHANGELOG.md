@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-10-19
 
 - First version: JobSpec model, async JobManager with an SQLite journal, ARC and local
   backends, dask integration (gateway cluster, grid tasks, plain jobs), `xrdwms` command line.
