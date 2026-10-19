@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+
+# Build artefacts
+build/
+dist/
+*.egg-info/
+site/
+
+# Tooling caches and coverage data
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
+
+# Generated datasets
+/datasets/
+
+# CI checkouts of sibling repositories
+/.dependencies/
+.complexipy_cache/

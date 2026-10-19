@@ -1,0 +1,51 @@
+name: CI
+
+# Every gate is one of xrd-devtools' reusable workflows (rob-c/xrd-devtools,
+# .github/workflows), reading its configuration from this repository's
+# pyproject.toml. xrdwms sits on the whole chain, so every job builds against
+# the candidates of all six packages until they are on PyPI.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      devtools-ref:
+        description: rob-c/xrd-devtools ref whose gates and tools run
+        default: main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ruff, mypy --strict, complexipy, the take-over scorecard and the
+  # configuration conformance check.
+  static:
+    uses: rob-c/xrd-devtools/.github/workflows/static.yml@main
+    with:
+      packages: xrdcore xrdsec xrdhttp xrdclient xgfalclient xrdarc
+      devtools-ref: ${{ inputs.devtools-ref || 'main' }}
+
+  # The suite at 100 % line and branch; the interop tests want the docker
+  # ARC CE (tools/interop-docker.sh) and skip themselves.
+  test:
+    uses: rob-c/xrd-devtools/.github/workflows/tests.yml@main
+    with:
+      packages: xrdcore xrdsec xrdhttp xrdclient xgfalclient xrdarc
+      devtools-ref: ${{ inputs.devtools-ref || 'main' }}
+      os: '["ubuntu-latest"]'
+      python-versions: '["3.11", "3.14"]'
+      markers: not interop
+      pytest-args: --timeout=300 --cov --cov-report=term-missing:skip-covered
+
+  # No function duplicated across the chain; every repository's configuration
+  # is the standard. This commit stands in for xrdwms's main.
+  chain:
+    uses: rob-c/xrd-devtools/.github/workflows/chain.yml@main
+    with:
+      xrdwms-ref: ${{ github.sha }}
+      devtools-ref: ${{ inputs.devtools-ref || 'main' }}

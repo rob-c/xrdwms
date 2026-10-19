@@ -1,0 +1,207 @@
+[build-system]
+# Hatchling 1.32 emits Core Metadata 2.5, which Twine 6.2 cannot validate.
+requires = ["hatchling>=1.27,<1.32"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xrdwms"
+dynamic = ["version"]
+description = "Grid jobs as dask tasks: one job model over ARC and other grid workload managers, with X.509/VOMS and token credentials"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "LGPL-3.0-or-later" }
+authors = [{ name = "Robert Currie", email = "robert.andrew.currie@gmail.com" }]
+keywords = ["dask", "grid", "wlcg", "hep", "arc", "workload", "jobs", "x509", "tokens"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: System :: Distributed Computing",
+]
+# Built on dask and the grid libraries: dask.distributed runs the graphs,
+# xrdcore/xrdsec give errors, logging, backoff and credentials, and
+# xrdclient/xgfalclient move and check the data a job reads and writes.
+# Backends are extras, so a site that only needs one pulls in only its client.
+dependencies = [
+  "dask[distributed]>=2025.1",
+  "cloudpickle>=3",
+  "fsspec>=2024.2",
+  "xrdcore>=0.4.0,<0.5",
+  "xrdsec>=0.4.0,<0.5",
+  "xrdhttp>=0.4.0,<0.5",
+  "xrdclient>=0.4.0,<0.5",
+  "xgfalclient>=0.4.0,<0.5",
+]
+
+[project.optional-dependencies]
+arc = ["xrdarc>=0.4.0,<0.5"]
+dev = [
+  "build>=1,<2",
+  "complexipy>=6,<7",
+  "mypy>=2.3,<2.5",
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "pytest-cov",
+  "pytest-timeout",
+  "pytest-xdist",
+  # tests/test_scorecard.py: xrd-devtools' scorecard gate measures with these
+  # (complexipy above, too).
+  "radon>=6,<7",
+  "ruff>=0.5",
+  "xrdarc>=0.4.0,<0.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/rob-c/xrdwms"
+Repository = "https://github.com/rob-c/xrdwms"
+Issues = "https://github.com/rob-c/xrdwms/issues"
+Changelog = "https://github.com/rob-c/xrdwms/blob/main/CHANGELOG.md"
+
+[project.scripts]
+xrdwms = "xrdwms.cli:main"
+
+[project.entry-points."xrdwms.backends"]
+arc = "xrdwms.backends.arc:ARCBackend"
+local = "xrdwms.backends.local:LocalBackend"
+fake = "xrdwms.testing:FakeBackend"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xrdwms"]
+
+[tool.hatch.version]
+path = "src/xrdwms/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The take-over gate (tests/test_scorecard.py) is xrd-devtools' pytest plugin,
+# found in a sibling checkout or CI's .dependencies/ checkout (it cannot be a
+# dependency: PyPI refuses direct-URL requirements); without one it skips.
+pythonpath = [".", "../xrd-devtools/src", ".dependencies/xrd-devtools/src"]
+timeout = 120
+addopts = "-ra"
+# >>> xrddevtools sync: pytest-warnings (generated from xrd-devtools/src/xrddevtools/standard) >>>
+# Every warning fails the run, ours and third parties' alike; a test that
+# expects one says so with ``pytest.warns``.
+filterwarnings = ["error"]
+# <<< xrddevtools sync: pytest-warnings <<<
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "interop: needs a real ARC CE; skipped unless XRDWMS_INTEROP=1 (see tools/interop-docker.sh)",
+]
+
+# >>> xrddevtools sync: coverage (generated from xrd-devtools/src/xrddevtools/standard) >>>
+[tool.coverage.run]
+branch = true
+source = ["xrdwms"]
+parallel = true
+concurrency = ["thread"]
+
+[tool.coverage.report]
+# Every line and branch, reached by a test that makes the case happen.
+fail_under = 100
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "@overload",
+  "raise NotImplementedError",
+  "\\.\\.\\.$",
+  "if __name__ == .__main__.:",
+]
+show_missing = true
+skip_covered = true
+# <<< xrddevtools sync: coverage <<<
+
+# >>> xrddevtools sync: ruff (generated from xrd-devtools/src/xrddevtools/standard) >>>
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF",
+  # High-confidence security checks. The wider S family cannot tell the
+  # protocol-mandated hashes, parsers and subprocesses of a storage client
+  # from unsafe application code, so it is reviewed rather than enabled.
+  "S102", "S307", "S506", "S602", "S608", "S609", "S701",
+  # Banned APIs: the banned-api table.
+  "TID251",
+]
+# No rule is ignored and there are no per-file ignores: old code passes the
+# same checks as new code.
+ignore = []
+# <<< xrddevtools sync: ruff <<<
+
+# >>> xrddevtools sync: banned-api (generated from xrd-devtools/src/xrddevtools/standard) >>>
+# What another part of the chain owns, this repository does not do itself:
+# each message names the replacement. No entry is scoped by file and nothing
+# is ignored; CONTRIBUTING.md's "Banned APIs" explains each one.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"http.client".msg = "HTTP is xrdhttp's: requests through xrdhttp.session.Session; connections, and the http.client types a client names (IncompleteRead, HTTPMessage, ...), through xrdhttp.connection"
+"urllib3".msg = "the chain has no third-party HTTP stack: use xrdhttp.session.Session (pooling, redirects, retries; TLS from xrdsec.tls)"
+"requests".msg = "the chain has no third-party HTTP stack: use xrdhttp.session.Session (pooling, redirects, retries; TLS from xrdsec.tls)"
+"httpx".msg = "the chain has no third-party HTTP stack: use xrdhttp.session.Session (pooling, redirects, retries; TLS from xrdsec.tls)"
+"urllib.request".msg = "use xrdhttp.session.Session: urllib's opener has none of the chain's TLS, redirect or retry rules"
+"gssapi".msg = "Kerberos GSS-API is xrdsec.krb5.gss (the xrdsec[krb5] extra), one wrapper for every client"
+"krb5".msg = "pykrb5 is not a dependency: credential caches are xrdsec.krb5.caches / xrdsec.krb5.ccache, GSS-API is xrdsec.krb5.gss"
+"ssl.PROTOCOL_TLS".msg = "TLS contexts are built by xrdsec.tls.client_context (grid CAs, CRLs, proxies, caching); GSI data channels by xrdsec.gsi.gss.data_contexts; tests by xrdsec.testing.pki.PKI.client_context / server_context"
+"ssl.PROTOCOL_TLS_CLIENT".msg = "TLS contexts are built by xrdsec.tls.client_context (grid CAs, CRLs, proxies, caching); GSI data channels by xrdsec.gsi.gss.data_contexts; tests by xrdsec.testing.pki.PKI.client_context / server_context"
+"ssl.PROTOCOL_TLS_SERVER".msg = "TLS contexts are built by xrdsec.tls.client_context (grid CAs, CRLs, proxies, caching); GSI data channels by xrdsec.gsi.gss.data_contexts; tests by xrdsec.testing.pki.PKI.client_context / server_context"
+"ssl._create_unverified_context".msg = "TLS contexts are built by xrdsec.tls.client_context (grid CAs, CRLs, proxies, caching); GSI data channels by xrdsec.gsi.gss.data_contexts; tests by xrdsec.testing.pki.PKI.client_context / server_context"
+"ssl.create_default_context".msg = "TLS contexts are built by xrdsec.tls.client_context (grid CAs, CRLs, proxies, caching); GSI data channels by xrdsec.gsi.gss.data_contexts; tests by xrdsec.testing.pki.PKI.client_context / server_context"
+"concurrent.futures.ThreadPoolExecutor".msg = "a fan-out is xrdcore.fanout.run_all (first failure raised, the rest stopped); a long-lived pool is xrdcore.fanout.Pool"
+"xml.etree.ElementTree.XML".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.XMLParser".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.XMLPullParser".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.fromstring".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.fromstringlist".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.iterparse".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.etree.ElementTree.parse".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.dom.minidom".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.dom.pulldom".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.parsers.expat".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.sax.make_parser".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.sax.parse".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"xml.sax.parseString".msg = "parse XML with xrdcore.safexml.fromstring, which refuses DOCTYPEs and entities"
+"botocore".msg = "S3 signing and the S3 codec are xrdhttp.s3 (the xrdhttp[s3] extra); only xrdhttp.s3 imports botocore"
+"boto3".msg = "S3 signing and the S3 codec are xrdhttp.s3 (the xrdhttp[s3] extra); only xrdhttp.s3 imports botocore"
+# <<< xrddevtools sync: banned-api <<<
+
+# >>> xrddevtools sync: mypy (generated from xrd-devtools/src/xrddevtools/standard) >>>
+[tool.mypy]
+# 3.11 is the oldest interpreter any supported platform hands a user.
+python_version = "3.11"
+strict = true
+# <<< xrddevtools sync: mypy <<<
+# The tests too, so every annotation and any remaining ignore in them is checked.
+# They import their helpers (``_shared``, ``conftest``) as top-level modules.
+files = ["src/xrdwms", "tests"]
+mypy_path = ["src", "tests"]
+# dask.distributed ships py.typed but leaves ``LocalCluster``, ``Client`` and most
+# ``Client`` methods unannotated; calls into it are exempt from the untyped-call check
+# (they still type-check their arguments where it is annotated).
+untyped_calls_exclude = ["distributed"]
+
+[[tool.mypy.overrides]]
+module = ["xrdcore.*", "xrdsec.*", "xrdarc.*", "xrdclient.*", "xgfalclient.*"]
+follow_imports = "normal"
+
+# >>> xrddevtools sync: mypy-overrides (generated from xrd-devtools/src/xrddevtools/standard) >>>
+# cloudpickle (the payload pickler) and fsspec (reached through
+# xrdclient.fsspec_impl, which subclasses it) ship no type information at all.
+[[tool.mypy.overrides]]
+module = ["cloudpickle.*", "fsspec.*"]
+ignore_missing_imports = true
+# <<< xrddevtools sync: mypy-overrides <<<
+
+# >>> xrddevtools sync: complexipy (generated from xrd-devtools/src/xrddevtools/standard) >>>
+[tool.complexipy]
+# Every function of every Python file, with no snapshot of old offenders.
+paths = ["src", "tests"]
+max-complexity-allowed = 15
+failed = true
+# <<< xrddevtools sync: complexipy <<<
