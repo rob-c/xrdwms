@@ -1,0 +1,46 @@
+# Builds the sdist and wheel on a version tag and uploads them to PyPI through
+# trusted publishing (no API token: PyPI trusts this workflow's OIDC identity,
+# registered under the project's "Publishing" settings, with the "pypi"
+# environment).
+#
+# xrdwms sits on the whole chain - xrdcore, xrdsec, xrdhttp, xrdclient and
+# xgfalclient, with xrdarc behind its `arc` extra - so it is released last:
+# the pre-flight refuses to publish until every one of them is on PyPI, and
+# the release wheel is then installed from PyPI alone, never from a checkout.
+# Release order and the whole chain's runbook: docs/releasing.md in
+# rob-c/xrdclient ("Releasing the 0.4.0 chain").
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # Every step but the upload is xrd-devtools' shared publish action: build,
+  # `twine check --strict`, the pre-flight (the chain is on PyPI), then a clean
+  # install whose tag, runtime version and dated changelog section agree.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: rob-c/xrd-devtools/.github/actions/publish@main
+        with:
+          package: xrdwms
+          preflight: true
+
+  # Trusted publishing ties PyPI's trust to this job of this workflow, so the
+  # upload stays here, in a job that only downloads what the build staged.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

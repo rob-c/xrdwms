@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0] - Unreleased
+## [0.4.0] - Unreleased
 
 - First version: JobSpec model, async JobManager with an SQLite journal, ARC and local
   backends, dask integration (gateway cluster, grid tasks, plain jobs), `xrdwms` command line.
@@ -113,8 +113,13 @@
   `xrddevtools sync` from the standard kept once in xrd-devtools;
   `xrddevtools conformance` fails a hand edit between the markers. The
   repository's own keys and notes sit beside the blocks.
-- Version `0.1.0` (was `0.1.0.dev0`) and the changelog heading in the
-  chain's form (`## [0.1.0] - Unreleased`), as the release gate requires;
+- Version `0.4.0` (was `0.1.0.dev0`): xrdwms is released with the rest of
+  the chain, last, after xrdarc, and its changelog heading is in the chain's
+  form (`## [0.4.0] - Unreleased`), as the release gate requires;
   `[project.urls]` gains Issues and Changelog.
+- `.github/workflows/publish.yml`, new: a `v*` tag builds with xrd-devtools'
+  shared `publish` action (the pre-flight requires every package of the
+  chain on PyPI first) and uploads to PyPI with trusted publishing
+  (workflow `publish.yml`, environment `pypi`).
 - `CONTRIBUTING.md`, new: the code standard, the banned APIs (moved from the
   README) and how the gates find xrd-devtools.
