@@ -162,7 +162,10 @@ def test_failures_of_get_and_clean(env: dict[str, Any], capsys: pytest.CaptureFi
 
 def test_backends_listing(env: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> None:
     code, out, _ = run(capsys, "backends")
-    assert code == 0 and "here  local" in out and "kinds: arc, fake, local" in out
+    # Installed packages may add kinds of their own (xrddirac's "dirac"): the built-ins are there.
+    line = next(text for text in out.splitlines() if text.startswith("kinds: "))
+    kinds = {kind.strip() for kind in line.removeprefix("kinds: ").split(",")}
+    assert code == 0 and "here  local" in out and {"arc", "fake", "local"} <= kinds
 
 
 def test_usage_and_errors(env: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> None:
