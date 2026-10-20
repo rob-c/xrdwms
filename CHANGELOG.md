@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- A backend may own a storage scheme: `url_storage(url)` answers the storage for a URL (DIRAC's
+  `lfn:`), and the manager stages inputs, checks URL outputs and removes staged inputs through
+  it. `xrdwms.staging.Routed` does the routing; `GridStorage.remove()` deletes a file.
+- `Capabilities.output_grace`: a job its backend calls done waits in `staging-out` for missing
+  URL outputs for up to that many seconds before they are a `DATA` failure (default 0: checked
+  once, as before), for workload managers that register outputs after the job ends.
+- Cleaning a job removes the inputs this manager staged for it (a failure is only logged).
+- Fixed a test that listed the backend kinds exactly, so an installed plugin's kind failed it.
+
 ## [0.4.0] - 2026-10-19
 
 - First version: JobSpec model, async JobManager with an SQLite journal, ARC and local

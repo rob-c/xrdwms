@@ -10,6 +10,13 @@ Backends are found by *kind* (``arc``, ``local``): the built-in ones, then
 the ``xrdwms.backends`` entry point group, so another package can add one
 without xrdwms knowing of it. :func:`create` builds one from a kind, a name
 and its options - what a configuration file holds.
+
+A backend whose workload manager owns a storage scheme of its own (DIRAC's
+``lfn:``) may also offer ``url_storage(url) -> Storage | None``: the
+:class:`~xrdwms.staging.Storage` for that URL, or ``None`` for xrdwms's own.
+The manager stages its jobs' large inputs, checks their URL outputs and
+removes their staged inputs through it. With it, ``Capabilities.output_grace``
+lets outputs that are registered after the job ends still count.
 """
 
 from __future__ import annotations

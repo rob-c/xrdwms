@@ -29,7 +29,7 @@ from .model import JobSpec, is_url
 if TYPE_CHECKING:
     from xgfalclient import Gfal2Context
 
-__all__ = ["Exists", "GridStorage", "Storage", "verify_outputs"]
+__all__ = ["Exists", "GridStorage", "Routed", "Storage", "remove", "verify_outputs"]
 
 _T = TypeVar("_T")
 
@@ -124,6 +124,62 @@ class GridStorage:
             context.filecopy(params, _as_url(source), _as_url(target))
 
         self._call(filecopy)
+
+    def remove(self, url: str) -> None:
+        """``unlink``: delete the file at ``url``."""
+        self._call(lambda context: context.unlink(_as_url(url)))
+
+
+class Routed:
+    """A :class:`Storage` that sends each URL to the storage a chooser names, else a default.
+
+    What lets a backend own a scheme xrdwms knows nothing of (DIRAC's
+    ``lfn:``): ``choose(location)`` answers the storage for a location, or
+    ``None`` for ``default``. A copy goes to the storage the target's side
+    chooses, else the source's.
+    """
+
+    def __init__(self, default: Storage, choose: Callable[[str], Storage | None]) -> None:
+        """Route through ``choose``; everything it declines goes to ``default``."""
+        self.default = default
+        self.choose = choose
+
+    def _for(self, *locations: str) -> Storage:
+        # Every location is offered: a scheme like ``lfn:/...`` has no ``//``, so
+        # is_url() does not call it a URL, but its owner knows it for one.
+        for location in locations:
+            chosen = self.choose(location)
+            if chosen is not None:
+                return chosen
+        return self.default
+
+    def exists(self, url: str) -> bool:
+        """The routed storage's ``exists``."""
+        return self._for(url).exists(url)
+
+    def size(self, url: str) -> int:
+        """The routed storage's ``size``."""
+        return self._for(url).size(url)
+
+    def checksum(self, url: str, algorithm: str = "adler32") -> str:
+        """The routed storage's ``checksum``."""
+        return self._for(url).checksum(url, algorithm)
+
+    def copy(self, source: str, target: str) -> None:
+        """The routed storage's ``copy`` (chosen by the target, then the source)."""
+        self._for(target, source).copy(source, target)
+
+    def remove(self, url: str) -> None:
+        """The routed storage's ``remove``; ``OSError(ENOTSUP)`` if it cannot."""
+        remove(self._for(url), url)
+
+
+def remove(storage: Storage, url: str) -> None:
+    """Delete ``url`` through ``storage``, which may not offer removal (``ENOTSUP`` then)."""
+    method = getattr(storage, "remove", None)
+    if method is None:
+        raise OSError(errno.ENOTSUP, f"{type(storage).__name__} cannot remove {url}")
+    method(url)
 
 
 def _as_url(location: str) -> str:

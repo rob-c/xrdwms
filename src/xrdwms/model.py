@@ -470,6 +470,10 @@ class Capabilities:
     token_auth: bool = False
     #: ``find`` can look jobs up by idempotency key (crash recovery).
     find: bool = False
+    #: Seconds a job the backend calls done may wait for its URL outputs to appear
+    #: before they count as missing: a workload manager that registers outputs
+    #: asynchronously (DIRAC's failover requests) needs this; 0 checks once.
+    output_grace: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)

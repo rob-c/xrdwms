@@ -105,7 +105,7 @@ from .model import (
     Retrieved,
     SubmitResult,
 )
-from .staging import GridStorage, Storage, verify_outputs
+from .staging import GridStorage, Routed, Storage, remove, verify_outputs
 
 __all__ = ["JobManager", "ManagerEvent", "PollPolicy", "failure_for", "new_key"]
 
@@ -174,6 +174,8 @@ class JobManager:
         self._submit_after: dict[str, float] = {}
         #: When each backend is next polled (monotonic time; ``None``: nothing to poll).
         self._next_poll: dict[str, float | None] = {}
+        #: When each done job was first seen with outputs still missing (monotonic time).
+        self._awaiting: dict[str, float] = {}
         self._renewed = False
         self._closed = False
 
@@ -375,9 +377,25 @@ class JobManager:
         # What can be answered without asking a backend: still going, or never sent.
         results = {r.key: answer for r in records if (answer := clean_unasked(r)) is not None}
         results.update(await self._clean_on_backends([r for r in records if r.key not in results]))
+        for record in records:
+            if results[record.key].ok:
+                await self._remove_staged(record)
         if forget:
             self.journal.remove([k for k in keys if results[k].ok])
         return [results[key] for key in keys]
+
+    async def _remove_staged(self, record: Record) -> None:
+        """Delete the inputs this manager staged for a cleaned job; a failure is only logged."""
+        if self.staging is None:
+            return
+        prefix = f"{self.staging}/{record.key}/"
+        storage = self.storage_for(record.backend)
+        for item in record.spec.inputs:
+            if item.source.startswith(prefix):
+                try:
+                    await asyncio.to_thread(remove, storage, item.source)
+                except OSError as exc:
+                    _log.warning("Could not remove the staged input %s: %s", item.source, exc)
 
     async def _clean_on_backends(self, records: list[Record]) -> dict[str, OpResult]:
         """Each backend's answers for its jobs among ``records``: one bulk call each, by key."""
@@ -603,7 +621,7 @@ class JobManager:
         for item in large:
             url = f"{self.staging}/{record.key}/{item.name}"
             try:
-                await asyncio.to_thread(self.storage.copy, str(base / item.source), url)
+                await asyncio.to_thread(self.storage_for(name).copy, str(base / item.source), url)
             except OSError as exc:
                 failure = Failure(FailureKind.DATA, f"Could not stage {item.name} to {url}: {exc}")
                 self._submitted(name, record, SubmitResult(record.attempt_key, failure=failure))
@@ -805,13 +823,41 @@ class JobManager:
         )
         self._poke(current.backend)
 
+    def storage_for(self, name: str) -> Storage:
+        """The storage for backend ``name``'s data: its own for the schemes it owns, else ours.
+
+        A backend may offer ``url_storage(url) -> Storage | None`` (DIRAC's
+        for ``lfn:``); the staging uploads, output checks and staged-input
+        clean-up of its jobs go through it.
+        """
+        own = getattr(self.backends.get(name), "url_storage", None)
+        if not callable(own):
+            return self.storage
+        return Routed(self.storage, own)
+
     async def _check_outputs(self, record: Record, info: JobInfo) -> JobInfo:
-        """``info``, or a ``DATA`` failure if a URL output of the job is missing."""
+        """``info``, or a ``DATA`` failure if a URL output of the job is missing.
+
+        Within the backend's ``output_grace`` of first finding outputs
+        missing, the job is ``STAGING_OUT`` instead - still polled - so outputs
+        a workload manager registers late still count.
+        """
         if all(o.in_sandbox for o in record.spec.outputs):
             return info
-        problems = await asyncio.to_thread(verify_outputs, record.spec, self.storage)
+        storage = self.storage_for(record.backend)
+        problems = await asyncio.to_thread(verify_outputs, record.spec, storage)
         if not problems:
+            self._awaiting.pop(record.key, None)
             return info
+        grace = self._backend(record.backend).capabilities.output_grace
+        since = self._awaiting.setdefault(record.key, time.monotonic())
+        if time.monotonic() - since < grace:
+            return replace(
+                info,
+                state=JobState.STAGING_OUT,
+                native_state="waiting for outputs: " + "; ".join(problems),
+            )
+        self._awaiting.pop(record.key, None)
         failure = Failure(FailureKind.DATA, "Missing outputs: " + "; ".join(problems))
         return replace(info, state=JobState.FAILED, failure=failure)
 
