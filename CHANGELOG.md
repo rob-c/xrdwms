@@ -11,6 +11,10 @@
 - Cleaning a job removes the inputs this manager staged for it (a failure is only logged).
 - Fixed a test that listed the backend kinds exactly, so an installed plugin's kind failed it.
 
+## [0.4.1] - Unreleased
+
+No changes of its own: released with the 0.4.1 chain (xrdsec, xrdclient and xgfalclient fixes, xrdarc's production fixes), whose packages share one version. Requires the 0.4.1 chain.
+
 ## [0.4.0] - 2026-10-19
 
 - First version: JobSpec model, async JobManager with an SQLite journal, ARC and local

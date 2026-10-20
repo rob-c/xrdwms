@@ -30,15 +30,15 @@ dependencies = [
   "dask[distributed]>=2025.1",
   "cloudpickle>=3",
   "fsspec>=2024.2",
-  "xrdcore>=0.4.0,<0.5",
-  "xrdsec>=0.4.0,<0.5",
-  "xrdhttp>=0.4.0,<0.5",
-  "xrdclient>=0.4.0,<0.5",
-  "xgfalclient>=0.4.0,<0.5",
+  "xrdcore>=0.4.1,<0.5",
+  "xrdsec>=0.4.1,<0.5",
+  "xrdhttp>=0.4.1,<0.5",
+  "xrdclient>=0.4.1,<0.5",
+  "xgfalclient>=0.4.1,<0.5",
 ]
 
 [project.optional-dependencies]
-arc = ["xrdarc>=0.4.0,<0.5"]
+arc = ["xrdarc>=0.4.1,<0.5"]
 dev = [
   "build>=1,<2",
   "complexipy>=6,<7",
@@ -52,7 +52,7 @@ dev = [
   # (complexipy above, too).
   "radon>=6,<7",
   "ruff>=0.5",
-  "xrdarc>=0.4.0,<0.5",
+  "xrdarc>=0.4.1,<0.5",
 ]
 
 [project.urls]
