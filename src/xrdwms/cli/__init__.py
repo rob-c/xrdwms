@@ -275,6 +275,11 @@ async def _status(session: Session) -> int:
     records = session.selected()
     if session.args.refresh and records:
         async with session.manager({r.backend for r in records}) as manager:
+            # A manager refreshes only the jobs it owns, so the selected ones have
+            # to be adopted first: without this, `--refresh` asked nobody and a
+            # job that had finished kept reporting "queued" (found by submitting
+            # to LHCb DIRAC and watching it finish at ECDF).
+            manager.resume()
             records = await manager.refresh([r.key for r in records])
     return _report(records)
 
