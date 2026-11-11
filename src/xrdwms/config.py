@@ -101,14 +101,42 @@ def resolve_backend(name: str, config: Config | None = None) -> dict[str, Any]:
     if config is not None and name in config.backends:
         return dict(config.backends[name])
     kind, _, target = name.partition(":")
-    if kind == "arc" and target:
-        ce, _, queue = target.partition("/")
-        return {"kind": "arc", "ce": ce, **({"queue": queue} if queue else {})}
-    if kind == "local":
-        return {"kind": "local", **({"root": target} if target else {})}
-    if kind == "fake":
-        return {"kind": "fake"}
+    shorthand = _shorthand(kind, target)
+    if shorthand is not None:
+        return shorthand
     configured = ", ".join(sorted(config.backends)) if config and config.backends else "none"
     raise ConfigError(
-        f"No backend {name!r}: configured are {configured}; or use arc:<ce>[/<queue>] or local"
+        f"No backend {name!r}: configured are {configured};"
+        " or use arc:<ce>[/<queue>], dirac:<profile>[,<site>...] or local"
     )
+
+
+def _shorthand(kind: str, target: str) -> dict[str, Any] | None:
+    """The backend table a ``kind:target`` name stands for, or ``None`` for none this knows."""
+    builders = {"arc": _arc_target, "local": _local_target, "dirac": _dirac_target}
+    builder = builders.get(kind)
+    if builder is not None:
+        return builder(target)
+    return {"kind": "fake"} if kind == "fake" else None
+
+
+def _arc_target(target: str) -> dict[str, Any] | None:
+    """``arc:<ce>[/<queue>]``; a bare ``arc`` names nothing, so it is refused."""
+    ce, _, queue = target.partition("/")
+    if not ce:
+        return None
+    return {"kind": "arc", "ce": ce, **({"queue": queue} if queue else {})}
+
+
+def _local_target(target: str) -> dict[str, Any]:
+    """``local[:<root>]``."""
+    return {"kind": "local", **({"root": target} if target else {})}
+
+
+def _dirac_target(target: str) -> dict[str, Any] | None:
+    """``dirac:<profile>[,<site>...]`` - a DIRAC job with no configuration file at all."""
+    profile, _, sites = target.partition(",")
+    if not profile:
+        return None
+    wanted = [one.strip() for one in sites.split(",") if one.strip()]
+    return {"kind": "dirac", "profile": profile, **({"sites": wanted} if wanted else {})}

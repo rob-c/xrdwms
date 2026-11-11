@@ -281,3 +281,19 @@ def test_shorthands() -> None:
         resolve_backend("arc")
     with pytest.raises(ConfigError, match="configured are a"):
         resolve_backend("zz", Config(backends={"a": {"kind": "fake"}}))
+
+
+def test_a_dirac_backend_can_be_named_without_configuration() -> None:
+    """``dirac:<profile>`` is the shorthand ``arc:<ce>`` is, so a DIRAC job needs no config file."""
+    assert resolve_backend("dirac:lhcb") == {"kind": "dirac", "profile": "lhcb"}
+    assert resolve_backend("dirac:lhcb,LCG.ECDF.uk") == {
+        "kind": "dirac",
+        "profile": "lhcb",
+        "sites": ["LCG.ECDF.uk"],
+    }
+    assert resolve_backend("dirac:lhcb,LCG.ECDF.uk,LCG.CERN.ch")["sites"] == [
+        "LCG.ECDF.uk",
+        "LCG.CERN.ch",
+    ]
+    with pytest.raises(ConfigError, match="dirac:<profile>"):
+        resolve_backend("dirac")
