@@ -168,6 +168,24 @@ def test_backends_listing(env: dict[str, Any], capsys: pytest.CaptureFixture[str
     assert code == 0 and "here  local" in out and {"arc", "fake", "local"} <= kinds
 
 
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["submitt"], "'submit'"),
+        (["canel"], "'cancel'"),
+        (["submit", "-b", "here", "--coutn", "2", "--", "x"], "'--count'"),
+    ],
+)
+def test_a_mis_typed_name_is_answered_with_the_one_meant(
+    env: dict[str, Any], capsys: pytest.CaptureFixture[str], argv: list[str], expected: str
+) -> None:
+    """xrdcore's parser offers the closest command or option that xrdwms does take."""
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(argv)
+    assert stopped.value.code == ExitCode.USAGE
+    assert f"did you mean {expected}?" in capsys.readouterr().err
+
+
 def test_usage_and_errors(env: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> None:
     code, out, _ = run(capsys)
     assert code == ExitCode.USAGE and "submit" in out
