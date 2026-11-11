@@ -297,3 +297,21 @@ def test_a_dirac_backend_can_be_named_without_configuration() -> None:
     ]
     with pytest.raises(ConfigError, match="dirac:<profile>"):
         resolve_backend("dirac")
+
+
+def test_a_backend_name_never_contains_a_colon() -> None:
+    """A handle is ``backend:id``, so the name a shorthand becomes may not carry one.
+
+    ``-b dirac:lhcb,LCG.ECDF.uk`` gave handles whose id began
+    ``lhcb,LCG.ECDF.uk:1602095059``, and status refresh could not take them apart:
+    "invalid literal for int() with base 10". The name is the safe spelling.
+    """
+    from xrdwms.config import normalised
+
+    assert normalised("dirac:lhcb,LCG.ECDF.uk") == "dirac/lhcb,LCG.ECDF.uk"
+    assert normalised("local") == "local"
+    assert resolve_backend("dirac/lhcb,LCG.ECDF.uk") == {
+        "kind": "dirac",
+        "profile": "lhcb",
+        "sites": ["LCG.ECDF.uk"],
+    }

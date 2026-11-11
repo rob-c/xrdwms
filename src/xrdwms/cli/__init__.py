@@ -35,7 +35,7 @@ from xrdcore.errors import AuthenticationError
 
 from .. import backends as _backends
 from .._version import __version__
-from ..config import Config, load_config, resolve_backend
+from ..config import Config, load_config, normalised, resolve_backend
 from ..errors import ConfigError, JobFailedError, UnknownJobError, WMSError
 from ..journal import Journal, Record, default_path
 from ..manager import JobManager
@@ -91,7 +91,10 @@ class Session:
 
     def manager(self, names: set[str]) -> JobManager:
         """A manager over the backends ``names`` (configured, or shorthands)."""
-        built = [_backends.from_mapping(n, resolve_backend(n, self.config)) for n in sorted(names)]
+        built = [
+            _backends.from_mapping(normalised(n), resolve_backend(n, self.config))
+            for n in sorted(names)
+        ]
         return JobManager(
             built, journal=self.journal, policy=self.policy, staging=self.config.staging
         )

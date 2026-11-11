@@ -100,7 +100,7 @@ def resolve_backend(name: str, config: Config | None = None) -> dict[str, Any]:
     """The backend table for ``name``: a configured one, or a ``kind:target`` shorthand."""
     if config is not None and name in config.backends:
         return dict(config.backends[name])
-    kind, _, target = name.partition(":")
+    kind, _, target = _split(name)
     shorthand = _shorthand(kind, target)
     if shorthand is not None:
         return shorthand
@@ -109,6 +109,32 @@ def resolve_backend(name: str, config: Config | None = None) -> dict[str, Any]:
         f"No backend {name!r}: configured are {configured};"
         " or use arc:<ce>[/<queue>], dirac:<profile>[,<site>...] or local"
     )
+
+
+def normalised(name: str) -> str:
+    """A shorthand name with ``/`` for its ``:``, because a name may not contain a colon.
+
+    A job handle is ``backend:id``, and the backend's name is the shorthand given
+    to ``-b``: ``dirac:lhcb,LCG.ECDF.uk`` produced handles whose id began
+    ``lhcb,LCG.ECDF.uk:1602095059``, which no reader could take apart again.
+    ``dirac/lhcb,LCG.ECDF.uk`` says the same thing and is safe.
+    """
+    head, _, rest = name.partition(":")
+    return f"{head}/{rest}" if rest else name
+
+
+def _split(name: str) -> tuple[str, str, str]:
+    """``(kind, separator, target)``: a shorthand may use ``/`` or ``:``.
+
+    ``:`` wins where it comes first, because ``arc:ce/short`` uses ``/`` inside
+    the target (the queue) - only a name with no colon at all is read with ``/``
+    as the separator, which is the safe spelling a backend's *name* uses.
+    """
+    kind, colon, target = name.partition(":")
+    if colon:
+        return kind, colon, target
+    head, slash, rest = name.partition("/")
+    return head, slash, rest
 
 
 def _shorthand(kind: str, target: str) -> dict[str, Any] | None:
