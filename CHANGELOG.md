@@ -13,6 +13,13 @@
 
 ## [0.4.1] - Unreleased
 
+### Tested
+
+- The `dirac` backend is exercised end to end on **macOS** (Apple Silicon)
+  with X.509 authentication: a Python job submitted through `xrdwms submit -b
+  dirac/lhcb,<site>` ran at UKI-SCOTGRID-ECDF and was tracked to `done` with its
+  exit code, through LHCb DIRAC.
+
 No changes of its own: released with the 0.4.1 chain (xrdsec, xrdclient and xgfalclient fixes, xrdarc's production fixes), whose packages share one version. Requires the 0.4.1 chain.
 
 ## [0.4.0] - 2026-10-19
