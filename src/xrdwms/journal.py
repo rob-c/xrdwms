@@ -112,9 +112,13 @@ _CLAIM = (
 )
 #: :meth:`Journal.records`: each filter is skipped when its parameter is ``NULL``;
 #: ``active`` compares "is terminal" with 0 (active) or 1 (ended).
+# Named parameters, not `?1`-style ones: a sequence bound to a numbered placeholder
+# is deprecated in Python 3.12 ("Starting with Python 3.14 an sqlite3.ProgrammingError
+# will be raised") and a dict costs nothing.
 _RECORDS = (
-    "SELECT * FROM jobs WHERE (?1 IS NULL OR backend = ?1) AND (?2 IS NULL OR grp = ?2) "
-    "AND (?3 IS NULL OR (state IN (SELECT value FROM json_each(?4))) = ?3) "
+    "SELECT * FROM jobs WHERE (:backend IS NULL OR backend = :backend) "
+    "AND (:group IS NULL OR grp = :group) "
+    "AND (:ended IS NULL OR (state IN (SELECT value FROM json_each(:terminal))) = :ended) "
     "ORDER BY created, key"
 )
 #: :meth:`Journal.save`: a job's whole working-set record, unconditionally - or, as
@@ -520,7 +524,10 @@ class Journal:
         """Jobs, oldest first; filtered by backend, group, and whether they are still going."""
         ended = None if active is None else int(not active)
         with self._lock:
-            rows = self._db.execute(_RECORDS, (backend, group, ended, _TERMINAL)).fetchall()
+            rows = self._db.execute(
+                _RECORDS,
+                {"backend": backend, "group": group, "ended": ended, "terminal": _TERMINAL},
+            ).fetchall()
         return [self._record(row) for row in rows]
 
     def events(self, key: str) -> list[Event]:
