@@ -92,8 +92,8 @@ class Session:
     def manager(self, names: set[str]) -> JobManager:
         """A manager over the backends ``names`` (configured, or shorthands)."""
         built = [
-            _backends.from_mapping(normalised(n), resolve_backend(n, self.config))
-            for n in sorted(names)
+            _backends.from_mapping(safe, resolve_backend(n, self.config))
+            for n, safe in ((n, normalised(n)) for n in sorted(names))
         ]
         return JobManager(
             built, journal=self.journal, policy=self.policy, staging=self.config.staging
@@ -227,8 +227,12 @@ def _spec_from_args(args: argparse.Namespace) -> JobSpec:
 async def _submit(session: Session) -> int:
     args = session.args
     spec = _spec_from_args(args)
-    async with session.manager({args.backend}) as manager:
-        keys = await manager.submit([spec] * args.count, backend=args.backend, group=args.group)
+    # One spelling of a backend's name, everywhere: the manager builds it under the
+    # safe name, so it must be *asked* about the safe name too - `-b arc:<ce>` used
+    # to fail with "No backend called 'arc:<ce>'" for exactly this.
+    name = normalised(args.backend)
+    async with session.manager({name}) as manager:
+        keys = await manager.submit([spec] * args.count, backend=name, group=args.group)
         records = await manager.submitted(keys)
         if args.wait:
             records = await manager.wait_all(keys)

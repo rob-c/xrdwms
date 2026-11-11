@@ -315,3 +315,18 @@ def test_a_backend_name_never_contains_a_colon() -> None:
         "profile": "lhcb",
         "sites": ["LCG.ECDF.uk"],
     }
+
+
+def test_a_colon_spelled_backend_is_found_by_the_manager() -> None:
+    """The manager builds a backend under its safe name, so it must be asked by that name.
+
+    `-b arc:<ce>` failed with "No backend called 'arc:<ce>'" because the caller
+    passed the colon spelling while the manager had filed it as `arc/<ce>`.
+    """
+    from xrdwms.config import normalised
+
+    assert normalised("arc:ce.example.org") == "arc/ce.example.org"
+    assert resolve_backend(normalised("arc:ce.example.org")) == {
+        "kind": "arc",
+        "ce": "ce.example.org",
+    }
