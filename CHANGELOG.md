@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.0] - 2026-11-12
 
 - A backend may own a storage scheme: `url_storage(url)` answers the storage for a URL (DIRAC's
   `lfn:`), and the manager stages inputs, checks URL outputs and removes staged inputs through
@@ -10,8 +10,6 @@
   once, as before), for workload managers that register outputs after the job ends.
 - Cleaning a job removes the inputs this manager staged for it (a failure is only logged).
 - Fixed a test that listed the backend kinds exactly, so an installed plugin's kind failed it.
-
-## [0.4.1] - Unreleased
 
 ### Tested
 
@@ -137,7 +135,7 @@ No changes of its own: released with the 0.4.1 chain (xrdsec, xrdclient and xgfa
   repository's own keys and notes sit beside the blocks.
 - Version `0.4.0` (was `0.1.0.dev0`): xrdwms is released with the rest of
   the chain, last, after xrdarc, and its changelog heading is in the chain's
-  form (`## [0.4.0] - Unreleased`), as the release gate requires;
+  form (`## [0.5.0] - 2026-11-12`), as the release gate requires;
   `[project.urls]` gains Issues and Changelog.
 - `.github/workflows/publish.yml`, new: a `v*` tag builds with xrd-devtools'
   shared `publish` action (the pre-flight requires every package of the
